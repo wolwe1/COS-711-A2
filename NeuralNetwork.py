@@ -15,10 +15,6 @@ import datetime
 
 import DataContainer as DC
 
-# import tensorflow_docs as tfdocs
-# import tensorflow_docs.plots
-# import tensorflow_docs.modeling
-
 import PrintUtils
 
 Plotter = PrintUtils.PrintUtils()
@@ -33,14 +29,24 @@ class NeuralNetwork:
     def __init__(self):
 
         self.dataContainer = _dataContainer
+
         self.testing_data = self.dataContainer.getTestingData()
         self.testing_labels = self.dataContainer.getTestingLabels().values
-        self.epochs = 200
+        self.training_data = self.dataContainer.getTrainingData()
+        self.training_labels = self.dataContainer.getTrainingLabels().values
+
+        self.epochs = 100
+
+
+        dataset = tf.data.Dataset.from_tensor_slices((self.training_data.values, self.training_labels))
+        
+
+        for feat, targ in dataset.take(5):
+            print ('Features: {}, Target: {}'.format(feat, targ))
 
         self.model = self.buildModel()
 
-        self.training_data = self.dataContainer.getTrainingData()
-        self.training_labels = self.dataContainer.getTrainingLabels().values
+        
 
   # For tensorboard
 
@@ -49,13 +55,20 @@ class NeuralNetwork:
         self.tensorboard_callback = \
             tf.keras.callbacks.TensorBoard(log_dir=self.log_dir)
 
+        
+
     def buildModel(self):
-        inputDataShape = len(self.dataContainer.getColumnNames())-1 #-1 for quality
+        inputDataShape = len(self.dataContainer.getColumnNames())-2 #-2 for quality and 
 
         self.model = keras.Sequential(
-            [keras.layers.Dense(8,activation='tanh', input_shape=[inputDataShape]),
-                keras.layers.Dense(8, activation='tanh'),
-                keras.layers.Dense(1)])
+            [
+                keras.layers.Dense(24,activation='relu', input_shape=[inputDataShape],kernel_regularizer=keras.regularizers.l2(0.0001)),
+                #keras.layers.Dropout(0.3),
+                keras.layers.Dense(24, activation='relu',kernel_regularizer=keras.regularizers.l2(0.0001)),
+                #keras.layers.Dropout(0.2),
+                keras.layers.Dense(12,activation='relu',kernel_regularizer=keras.regularizers.l2(0.0001)),
+                #keras.layers.Dropout(0.05),
+                keras.layers.Dense(1,activation='relu')])
 
         #optimiser = keras.optimizers.SGD(learning_rate=0.03,momentum=0.01, nesterov=False)
         #optimiser = tf.keras.optimizers.RMSprop(0.001)
@@ -70,14 +83,14 @@ class NeuralNetwork:
     def train(self):
 
         early_stop = keras.callbacks.EarlyStopping(monitor='val_loss',patience=20)
-
+    
         early_history = self.model.fit(
             self.training_data,
             self.training_labels,
             epochs=self.epochs,
             validation_split=0.2,
             verbose=0,
-            callbacks=[early_stop, self.tensorboard_callback],
+            callbacks=[ self.tensorboard_callback],
             )
 
     def evaluate(self):

@@ -22,40 +22,61 @@ class DataContainer :
     redWineList = pd.read_csv(FILEDIRECTORY + FILENAMERED,sep = ";")
     whiteWineList =  pd.read_csv(FILEDIRECTORY + FILENAMEWHITE,sep = ";")
 
+    redWineList['type'] = "red"
+    whiteWineList['type'] = "white"
     self.columnNames = whiteWineList.columns
 
     if whiteWineList.columns.values.all() != redWineList.columns.values.all() :
       print("ERR: WINE LIST HEADERS DO NOT MATCH")
 
+    #corr = pd.concat([redWineList,whiteWineList]).corr()
+    #s = corr.unstack()
+    #so = s.sort_values(kind="quicksort")
+    
+    #with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+      #print(so)
+
+    #sns.heatmap(corr, 
+        #xticklabels=corr.columns,
+        #yticklabels=corr.columns)
+
+    #plt.show()
 
     (self.testData, self.trainData) = self.splitDataSet(redWineList,whiteWineList)
 
     self.trainData = self.removeOutliers(self.trainData)
-  
+    
+    
+
     self.testData = self.normaliseData(self.testData)
     self.trainData = self.normaliseData(self.trainData)
+
+    #sns.pairplot(self.trainData[["fixed acidity","volatile acidity","citric acid","residual sugar","total sulfur dioxide"]], diag_kind="kde") 
+    #plt.show()
 
     self.testLabels =  self.testData["quality"]
     self.trainLabels =  self.trainData["quality"]
 
+    self.testTypes =  self.testData["type"]
+    self.trainTypes =  self.trainData["type"]
 
     self.testData.pop("quality")
     self.trainData.pop("quality")
-  
+    #self.testData.pop("type")
+    #self.trainData.pop("type")
+
+    #print( self.trainData.corr("pearson"))
     #self.printDataSetStats(self.testData)
     #self.printDataSetStats(self.trainData)
 
-   
-    #sns.pairplot(self.trainData[["fixed acidity","volatile acidity","citric acid","residual sugar"]], diag_kind="kde") 
-    #plt.show()
-    
 
 
   def splitDataSet(self,dataSetOne,dataSetTwo) :
-    redWineTrainingSet = dataSetOne.sample(frac=0.7,random_state=0)
+
+    redWineTrainingSet = dataSetOne.sample(frac=0.1,random_state=0)
     redWineTestingSet = dataSetOne.drop(redWineTrainingSet.index)
 
-    whiteWineTrainingSet = dataSetTwo.sample(frac=0.7,random_state=0)
+    whiteWineTrainingSet = dataSetTwo.sample(frac=0.1,random_state=0)
     whiteWineTestingSet = dataSetTwo.drop(whiteWineTrainingSet.index)
 
     trainingSet = pd.concat([redWineTrainingSet,whiteWineTrainingSet],sort=False)
@@ -66,12 +87,15 @@ class DataContainer :
 
   def normaliseData(self,dataSet) :
 
-    dataCopy = dataSet.describe().transpose()
+    subset = dataSet[dataSet.columns[~dataSet.columns.isin(['quality','type'])]]
 
-    normedData = self.norm(dataSet,dataCopy)
+    dataCopy = subset.describe().transpose()
+ 
+    normedData = self.norm(subset,dataCopy)
 
     normedData['quality'] = dataSet['quality']
-
+    normedData['type'] = dataSet['type']
+   
     return normedData
 
   def norm(self,x,dataset) :
@@ -117,8 +141,10 @@ class DataContainer :
     return x
 
   def removeOutliers(self,dataSet) :
-    #remove ouliers but donot take quality into account
-    noOutlierList = dataSet[(np.abs(stats.zscore(dataSet.loc[:, self.trainData.columns != 'quality'])) < 3).all(axis=1)]
+    #remove ouliers but donot take quality or type into account
+    subset = dataSet[dataSet.columns[~dataSet.columns.isin(['quality','type'])]]
+
+    noOutlierList = dataSet[(np.abs(stats.zscore(subset ) ) < 3).all(axis=1)]
     return noOutlierList
 
 
