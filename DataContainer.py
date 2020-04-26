@@ -45,8 +45,6 @@ class DataContainer :
     (self.testData, self.trainData) = self.splitDataSet(redWineList,whiteWineList)
 
     self.trainData = self.removeOutliers(self.trainData)
-    
-    
 
     self.testData = self.normaliseData(self.testData)
     self.trainData = self.normaliseData(self.trainData)
@@ -62,8 +60,8 @@ class DataContainer :
 
     self.testData.pop("quality")
     self.trainData.pop("quality")
-    #self.testData.pop("type")
-    #self.trainData.pop("type")
+    self.testData.pop("type")
+    self.trainData.pop("type")
 
     #print( self.trainData.corr("pearson"))
     #self.printDataSetStats(self.testData)
@@ -73,10 +71,10 @@ class DataContainer :
 
   def splitDataSet(self,dataSetOne,dataSetTwo) :
 
-    redWineTrainingSet = dataSetOne.sample(frac=0.1,random_state=0)
+    redWineTrainingSet = dataSetOne.sample(frac=0.7,random_state=0)
     redWineTestingSet = dataSetOne.drop(redWineTrainingSet.index)
 
-    whiteWineTrainingSet = dataSetTwo.sample(frac=0.1,random_state=0)
+    whiteWineTrainingSet = dataSetTwo.sample(frac=0.7,random_state=0)
     whiteWineTestingSet = dataSetTwo.drop(whiteWineTrainingSet.index)
 
     trainingSet = pd.concat([redWineTrainingSet,whiteWineTrainingSet],sort=False)

@@ -2,6 +2,23 @@ import NeuralNetwork as NN
 import DataContainer as DC
 import numpy as np
 
+
+def evaluateNet(evaluations,predictions) :
+    losses = []
+    MAEs = []
+    MSEs = []
+
+    for i in range( len(evaluations) ):
+        (loss,MAE,MSE) = evaluations[i]
+        losses.append(loss)
+        MAEs.append(MAE)
+        MSEs.append(MSE)
+
+    print("Averages")
+    print("Loss:",np.average(losses))
+    print("Mean absolute error(MAE):",np.average(MAEs))
+    print("Mean squared error (MSE):",np.average(MSEs))
+
 def calculateAccuracy(predictions,truth) :
 
     numCorrect = 0
@@ -12,51 +29,69 @@ def calculateAccuracy(predictions,truth) :
     
     return (numCorrect /len(predictions)) * 100
 
-def averageResultValues( arr ) :
+def getBest(evaluations) :
+    minMAE = 100
+    minIndex = -1
 
-    test_loss = 0
-    test_mae = 0 
-    test_mse = 0
-    count = len(arr) 
+    for i in range ( len(evaluations) ):
+        if evaluations[i][1] < minMAE : 
+            minIndex = i
+            minMAE = evaluations[i][1]
 
-    for i in range(count) :
-        test_loss = test_loss + arr[i][0]
-        test_mae = test_mae + arr[i][1]
-        test_mse = test_mse + arr[i][2]
-
-    test_mae = test_mae / count
-    test_mse = test_mse / count
-    test_loss = test_loss / count
-
-    return (test_loss, test_mae, test_mse)
+    return minIndex
 
 
 
 net = NN.NeuralNetwork
-data = DC.DataContainer()
+#data = DC.DataContainer()
 
-neuralNet = net()
-print("\n\n\n\n\n\n\nNN Created.\n")
+neuralNetMedium = net('relu','sgd','Medium')
+neuralNetLarge = net('relu','sgd','Largeprop')
+neuralNetSmall = net('relu','sgd','Small')
 
-evaluations = []
-predictions = []
-count = 1
+print("\n\n\n\n\nNN Created.\n")
+
+evaluationsMedium = []
+predictionsMedium = []
+
+evaluationsLarge = []
+predictionsLarge = []
+
+evaluationsSmall = []
+predictionsSmall = []
+count = 5
 
 for i in range(count) :
-    neuralNet.train()
-    print("\nNN Trained.\n")
-    evaluations.append( neuralNet.evaluate() )
-    print("\nNN Evaluated.\n")
-    predictions.append( calculateAccuracy( neuralNet.predict(), data.getTestingLabels().values ) )
-    print("\nNN Predicted.\n")
+    neuralNetMedium.train()
+    neuralNetLarge.train()
+    neuralNetSmall.train()
+
+    evaluationsMedium.append( neuralNetMedium.evaluate() )
+    evaluationsLarge.append( neuralNetLarge.evaluate() )
+    evaluationsSmall.append( neuralNetSmall.evaluate() )
+
+    predictionsMedium.append(neuralNetMedium.predict() )
+    predictionsLarge.append(neuralNetLarge.predict() )
+    predictionsSmall.append(neuralNetSmall.predict() )
 
 print("\n\nPerformed ",count," test runs\n")
-#print(evaluations)
 
-print("\n\nAverage of evaluations\n")
-avgEvaluation = averageResultValues(evaluations)
-print("Loss:",avgEvaluation[0])
-print("Mean absolute error(MAE):",avgEvaluation[1])
-print("Mean squared error (MSE):",avgEvaluation[2])
-print("Accuracy:",predictions)
+print("\nAverage of evaluations\n")
+#bestIndex = getBest(evaluations)
+#bestRun = evaluations[bestIndex]
+
+# #print("Best run")
+# print("Loss:",bestRun[0])
+# print("Mean absolute error(MAE):",bestRun[1])
+# print("Mean squared error (MSE):",bestRun[2])
+# print("Accuracy:",calculateAccuracy( predictions[bestIndex],data.getTestingLabels().values ) )
+print("Medium")
+evaluateNet(evaluationsMedium,predictionsMedium)
+print("Large")
+evaluateNet(evaluationsLarge,predictionsLarge)
+print("Small")
+evaluateNet(evaluationsSmall,predictionsSmall)
+
+
+
 

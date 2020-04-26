@@ -21,14 +21,21 @@ Plotter = PrintUtils.PrintUtils()
 
 import matplotlib.pyplot as plt
 
+
+import tensorflow_model_optimization as to
+from tensorflow_model_optimization.sparsity import keras as sparsity
+
 _dataContainer = DC.DataContainer()
 
 
 class NeuralNetwork:
 
-    def __init__(self):
+    def __init__(self,activationFunction,optimiser,size):
 
         self.dataContainer = _dataContainer
+        self.activationFunction = activationFunction
+        self.optimiser = optimiser
+        self.size = size
 
         self.testing_data = self.dataContainer.getTestingData()
         self.testing_labels = self.dataContainer.getTestingLabels().values
@@ -37,60 +44,107 @@ class NeuralNetwork:
 
         self.epochs = 100
 
-
-        dataset = tf.data.Dataset.from_tensor_slices((self.training_data.values, self.training_labels))
-        
-
-        for feat, targ in dataset.take(5):
-            print ('Features: {}, Target: {}'.format(feat, targ))
-
         self.model = self.buildModel()
 
+#     def __init__(self,model):
+
+#         self.dataContainer = model.dataContainer
+#         self.activationFunction = model.activationFunction
+#         self.optimiser = model.optimiser
+#         self.size = model.size
+
+#         self.testing_data = self.dataContainer.getTestingData()
+#         self.testing_labels = self.dataContainer.getTestingLabels().values
+#         self.training_data = self.dataContainer.getTrainingData()
+#         self.training_labels = self.dataContainer.getTrainingLabels().values
+
+#         self.epochs = 100
+
+#         self.model = model.model
         
 
   # For tensorboard
 
         self.log_dir = 'logs\\fit\\' \
-            + 'tanh' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+            + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
         self.tensorboard_callback = \
             tf.keras.callbacks.TensorBoard(log_dir=self.log_dir)
+        self.early_stop  = keras.callbacks.EarlyStopping(monitor='val_loss',patience=10)
+        
 
         
 
     def buildModel(self):
         inputDataShape = len(self.dataContainer.getColumnNames())-2 #-2 for quality and 
 
-        self.model = keras.Sequential(
-            [
-                keras.layers.Dense(24,activation='relu', input_shape=[inputDataShape],kernel_regularizer=keras.regularizers.l2(0.0001)),
-                #keras.layers.Dropout(0.3),
-                keras.layers.Dense(24, activation='relu',kernel_regularizer=keras.regularizers.l2(0.0001)),
-                #keras.layers.Dropout(0.2),
-                keras.layers.Dense(12,activation='relu',kernel_regularizer=keras.regularizers.l2(0.0001)),
-                #keras.layers.Dropout(0.05),
-                keras.layers.Dense(1,activation='relu')])
+        if self.size == 'Medium' :
+            self.model = keras.Sequential(
+                [
+                    keras.layers.Dense(24,activation=self.activationFunction, input_shape=[inputDataShape],kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    #keras.layers.BatchNormalization(),
+                    keras.layers.Dropout(0.3),
 
-        #optimiser = keras.optimizers.SGD(learning_rate=0.03,momentum=0.01, nesterov=False)
-        #optimiser = tf.keras.optimizers.RMSprop(0.001)
-        optimiser = 'adam'
+                    keras.layers.Dense(24, activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.2),
+
+                    keras.layers.Dense(12,activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.05),
+
+                    keras.layers.Dense(1,activation=self.activationFunction)
+                ])
+        elif self.size == 'Large' :
+            self.model = keras.Sequential(
+                [
+                    keras.layers.Dense(36,activation=self.activationFunction, input_shape=[inputDataShape],kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.3),
+                    keras.layers.Dense(36, activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(24, activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(24, activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(12,activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.05),
+                    keras.layers.Dense(1,activation=self.activationFunction)
+                ])
+        else :
+            self.model = keras.Sequential(
+                [
+                    keras.layers.Dense(12,activation=self.activationFunction, input_shape=[inputDataShape],kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.3),
+                    keras.layers.Dense(6, activation=self.activationFunction,kernel_regularizer=keras.regularizers.l2(0.0001)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(1,activation=self.activationFunction)
+                ])
+            
+
+        self.compile()
+
+        return self.model
+
+    def compile(self):
+
+        if self.optimiser == 'sgd' :
+            optimiser = keras.optimizers.SGD(learning_rate=0.03,momentum=0.01, nesterov=False)
+        elif self.optimiser == 'rmsprop' :
+            optimiser = tf.keras.optimizers.RMSprop(0.001)
+        else : 
+            optimiser = 'adam'
 
         self.model.compile(optimizer=optimiser,
                            loss= 'mse',
                            metrics=['mae', 'mse'])
 
-        return self.model
-
     def train(self):
-
-        early_stop = keras.callbacks.EarlyStopping(monitor='val_loss',patience=20)
-    
+        
         early_history = self.model.fit(
             self.training_data,
             self.training_labels,
             epochs=self.epochs,
-            validation_split=0.2,
+            validation_data=(self.testing_data,self.testing_labels),
+            #validation_split=0.2,
             verbose=0,
-            callbacks=[ self.tensorboard_callback],
+            callbacks=[ self.tensorboard_callback,self.early_stop],
             )
 
     def evaluate(self):
@@ -117,24 +171,59 @@ class NeuralNetwork:
   # _ = plt.xticks(range(10), range(10), rotation=45)
   # plt.show()
 
-        a = plt.axes(aspect='equal')
-        plt.scatter(self.testing_labels, test_predictions)
-        plt.xlabel('True Values [Point]')
-        plt.ylabel('Predictions [Points]')
-        lims = [0, 10]
-        plt.xlim(lims)
-        plt.ylim(lims)
-        _ = plt.plot(lims, lims)
+        # a = plt.axes(aspect='equal')
+        # plt.scatter(self.testing_labels, test_predictions)
+        # plt.xlabel('True Values [Point]')
+        # plt.ylabel('Predictions [Points]')
+        # lims = [0, 10]
+        # plt.xlim(lims)
+        # plt.ylim(lims)
+        # _ = plt.plot(lims, lims)
 
         #plt.show()
 
-        error = test_predictions - self.testing_labels
-        plt.hist(error, bins=25)
-        plt.xlabel('Prediction Error [Points]')
-        _ = plt.ylabel('Count')
+        # error = test_predictions - self.testing_labels
+        # plt.hist(error, bins=25)
+        # plt.xlabel('Prediction Error [Points]')
+        # _ = plt.ylabel('Count')
 
         #plt.show()
 
         return test_predictions
 
-  # Plotter.plotMultiPredictions(predictions=test_predictions,test_labels=self.testing_labels,test_data=self.testing_data)
+    def prune(self) :
+        batch_size = 32
+        num_train_samples = self.training_data.shape[0]
+        end_step = np.ceil(1.0 * num_train_samples / batch_size).astype(np.int32) * self.epochs
+        print(end_step)
+        
+        pruning_params = {
+            'pruning_schedule': sparsity.PolynomialDecay(initial_sparsity=0.50,
+                                                        final_sparsity=0.90,
+                                                        begin_step=0,
+                                                        end_step=end_step,
+                                                        frequency=100)
+        }
+
+                
+        new_pruned_model = sparsity.prune_low_magnitude(self.model, **pruning_params)
+
+
+        optimiser = keras.optimizers.SGD(learning_rate=0.03,momentum=0.01, nesterov=False)
+
+        new_pruned_model.compile(optimizer=optimiser,
+                    loss= 'mse',
+                    metrics=['mae', 'mse'])
+
+        #retrain & evaluate pruned model
+
+        new_pruned_model.fit(self.training_data, self.training_labels,
+                batch_size=batch_size,
+                epochs=self.epochs,
+                verbose=0,
+                validation_data=(self.testing_data, self.testing_labels),
+                callbacks = [sparsity.UpdatePruningStep(),self.early_stop])
+
+        return new_pruned_model
+
+        
